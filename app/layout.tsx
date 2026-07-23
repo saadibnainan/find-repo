@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo_Black, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,7 +16,15 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "FIND-REPO // GitHub Repository Explorer",
   description:
-    "Dark-brutalist GitHub repository explorer. Type a username, get their public repos as a 3D motioned diagram.",
+    "Dark-brutalist GitHub repository explorer. Type a username, get their profile and public repos, and inspect any repo's file tree.",
+  appleWebApp: {
+    title: "Find-Repo",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050505",
 };
 
 export default function RootLayout({

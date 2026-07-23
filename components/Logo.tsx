@@ -3,7 +3,7 @@ interface LogoMarkProps {
   className?: string;
 }
 
-// The icon alone: a repo card with a lime status dot — the found result.
+// The icon alone: a blocky F monogram with a lime locator dot.
 export function LogoMark({ size = 40, className = "" }: LogoMarkProps) {
   return (
     <span
@@ -11,10 +11,11 @@ export function LogoMark({ size = 40, className = "" }: LogoMarkProps) {
       className={`flex shrink-0 items-center justify-center border-4 border-bone bg-concrete ${className}`}
       style={{ width: size, height: size }}
     >
-      <svg viewBox="0 0 64 64" width="56%" height="56%" fill="none">
-        <rect x="13" y="14" width="31" height="31" rx="6" className="stroke-bone" strokeWidth={6} />
-        <line x1="13" y1="25" x2="44" y2="25" className="stroke-bone" strokeWidth={6} />
-        <circle cx="46" cy="47" r="9" className="fill-acid" />
+      <svg viewBox="0 0 64 64" width="50%" height="50%" fill="none">
+        <rect x="18" y="14" width="9" height="36" className="fill-bone" />
+        <rect x="18" y="14" width="26" height="9" className="fill-bone" />
+        <rect x="18" y="29" width="18" height="9" className="fill-bone" />
+        <circle cx="45" cy="46" r="6.5" className="fill-acid" />
       </svg>
     </span>
   );

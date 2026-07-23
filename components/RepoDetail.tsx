@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiError, Repo, TreePayload } from "@/lib/types";
 import { languageColor } from "@/lib/languageColors";
 import TreeView from "@/components/TreeView";
+import { LogoMark } from "@/components/Logo";
 
 interface RepoDetailProps {
   username: string;
@@ -83,26 +84,29 @@ export default function RepoDetail({ username, repo, onClose }: RepoDetailProps)
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b-4 border-bone bg-slab px-5 py-4">
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-acid">
-              file tree // branch: {repo.defaultBranch}
-            </p>
-            <h2 className="mt-1 break-all font-display text-2xl uppercase leading-none">
-              {username}/{repo.name}
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-4 font-mono text-xs uppercase text-bone/60">
-              {repo.language && (
-                <span className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="inline-block h-3 w-3 border border-void"
-                    style={{ backgroundColor: languageColor(repo.language) }}
-                  />
-                  {repo.language}
-                </span>
-              )}
-              <span>★ {repo.stars}</span>
-              <span>⑂ {repo.forks}</span>
+          <div className="flex min-w-0 items-start gap-3">
+            <LogoMark size={40} className="mt-0.5" />
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-acid">
+                file tree // branch: {repo.defaultBranch}
+              </p>
+              <h2 className="mt-1 break-all font-display text-2xl uppercase leading-none">
+                {username}/{repo.name}
+              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-4 font-mono text-xs uppercase text-bone/60">
+                {repo.language && (
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="inline-block h-3 w-3 border border-void"
+                      style={{ backgroundColor: languageColor(repo.language) }}
+                    />
+                    {repo.language}
+                  </span>
+                )}
+                <span>★ {repo.stars}</span>
+                <span>⑂ {repo.forks}</span>
+              </div>
             </div>
           </div>
           <button

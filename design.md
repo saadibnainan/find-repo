@@ -93,6 +93,24 @@ alphabetised) so the client renders without any tree-building logic.
   Rate-limit errors render in acid green with fix guidance; not-found and
   network errors render in alarm red.
 
+## Brand mark
+
+The logomark was designed in a Claude Design (`claude.ai/design`) project as
+four directions (lens+repo, terminal caret, repo card, F monogram), each shown
+as an app tile, favicon, avatar, and wordmark lockup. **"Repo Card"** was
+selected: a card outline with a header rule and a lime status dot in the
+corner — a miniature echo of the app's own repo cards, so the mark literally
+reads as "the repo you found."
+
+`components/Logo.tsx` exports `LogoMark` (icon only) and `Logo` (icon +
+"FIND[lime block]REPO" wordmark) as the single source of truth, used in the
+page header and the file-tree modal's title. `app/icon.svg` reproduces the
+same mark as a static file so Next.js serves it as the browser favicon via
+its file-based metadata convention — no separate icon asset to keep in sync.
+The icon's internal rounding (`rx="6"` on the card) is kept from the source
+design since it's part of the pictogram itself; the outer tile stays sharp
+(`0` radius) to match the rest of the UI's zero-border-radius rule.
+
 ## Deviations from the suggested stack
 
 None. Next.js App Router + Tailwind CSS + Framer Motion, as specified.

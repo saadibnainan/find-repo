@@ -11,8 +11,8 @@ export default function Home() {
           Find<span className="text-acid">-</span>Repo
         </h1>
         <p className="mt-4 max-w-2xl font-mono text-sm text-bone/70">
-          Enter a GitHub username. Get their public repos as a 3D motioned
-          diagram. No decoration. No mercy.
+          Enter a GitHub username. Get their profile and public repositories.
+          Click any repo to inspect its file tree.
         </p>
       </header>
 

@@ -1,19 +1,24 @@
 # FIND-REPO
 
 A dark-brutalist GitHub repository explorer. Type a GitHub username, get their
-public repositories rendered as a 3D motioned diagram — cards cascade in on
-staggered depth planes and the whole scene tilts toward your cursor.
+profile plus public repositories in a clean, professional card grid. Click any
+repo to inspect its full file tree.
 
 Built with **Next.js (App Router) + TypeScript + Tailwind CSS + Framer Motion**.
 See [`design.md`](./design.md) for architecture and implementation notes.
 
 ## Features
 
-- **3D motioned diagram** — repo cards float on staggered z-planes, cascade in
-  with spring physics, and the whole scene parallax-tilts with mouse movement
-  (fully disabled for `prefers-reduced-motion` users).
-- **Server-side GitHub proxy** — the browser only ever talks to
-  `/api/repos/:username`; an optional `GITHUB_TOKEN` stays on the server.
+- **User profile** — after searching, the user's avatar, name, bio, location,
+  company, and repo/follower/following counts render above their repositories.
+- **Repository grid** — a clean responsive card grid with a subtle staggered
+  fade-in entrance and a calm hover state (no disorienting motion; fully
+  respects `prefers-reduced-motion`).
+- **File-tree inspector** — click any repo card to open a modal showing that
+  repository's complete, collapsible file tree (directories first, sizes shown),
+  fetched from GitHub's git-trees API.
+- **Server-side GitHub proxy** — the browser only ever talks to `/api/*`
+  routes; an optional `GITHUB_TOKEN` stays on the server.
 - **Client-side validation** of GitHub username rules before any request fires.
 - **Stark error states** for unknown users, rate limiting (with fix guidance),
   and network failures.
@@ -58,7 +63,16 @@ rate-limit error explaining the fix.
 
 ## API
 
-`GET /api/repos/:username?page=1&per_page=20`
+Three server routes proxy the GitHub REST API, mapping each response down to
+the minimal shape the UI needs:
+
+| Route                                         | Purpose                          |
+| --------------------------------------------- | -------------------------------- |
+| `GET /api/user/:username`                     | User profile                     |
+| `GET /api/repos/:username?page=1&per_page=20` | A page of the user's public repos |
+| `GET /api/repos/:username/:repo/tree`         | The repo's file tree (nested)    |
+
+### `GET /api/repos/:username?page=1&per_page=20`
 
 Returns a minimal payload mapped from the GitHub REST API:
 

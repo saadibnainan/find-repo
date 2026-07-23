@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { ApiError, Repo, ReposPayload } from "@/lib/types";
+import type { Repo, ReposPayload } from "@/lib/types";
 import { isValidGithubUsername, normalizeUsername } from "@/lib/validate";
+import {
+  GITHUB_API,
+  errorResponse,
+  githubHeaders,
+  mapUpstreamError,
+  unreachableResponse,
+} from "@/lib/github";
 
-// Overridable so tests can point the proxy at a mock upstream.
-const GITHUB_API = process.env.GITHUB_API_URL ?? "https://api.github.com";
 const DEFAULT_PER_PAGE = 20;
 const MAX_PER_PAGE = 100;
 
@@ -17,10 +22,7 @@ interface GithubRepo {
   html_url: string;
   fork: boolean;
   updated_at: string;
-}
-
-function errorResponse(status: number, body: ApiError) {
-  return NextResponse.json(body, { status });
+  default_branch: string;
 }
 
 function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
@@ -47,17 +49,6 @@ export async function GET(
   const page = clampInt(searchParams.get("page"), 1, 1, 10_000);
   const perPage = clampInt(searchParams.get("per_page"), DEFAULT_PER_PAGE, 1, MAX_PER_PAGE);
 
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "find-repo",
-  };
-  // Server-side only: the token never reaches the browser.
-  const token = process.env.GITHUB_TOKEN;
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const upstreamUrl = new URL(`${GITHUB_API}/users/${username}/repos`);
   upstreamUrl.searchParams.set("page", String(page));
   upstreamUrl.searchParams.set("per_page", String(perPage));
@@ -67,44 +58,15 @@ export async function GET(
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl, {
-      headers,
+      headers: githubHeaders(),
       next: { revalidate: 60 },
     });
   } catch {
-    return errorResponse(502, {
-      code: "UPSTREAM_ERROR",
-      error: "Could not reach the GitHub API. Check your connection and retry.",
-    });
+    return unreachableResponse();
   }
 
-  if (upstream.status === 404) {
-    return errorResponse(404, {
-      code: "NOT_FOUND",
-      error: `No GitHub user named "${username}" exists.`,
-    });
-  }
-
-  const rateLimitRemaining = upstream.headers.get("x-ratelimit-remaining");
-  if (
-    upstream.status === 429 ||
-    (upstream.status === 403 && rateLimitRemaining === "0")
-  ) {
-    const reset = upstream.headers.get("x-ratelimit-reset");
-    const resetHint = reset
-      ? ` Limit resets at ${new Date(Number(reset) * 1000).toUTCString()}.`
-      : "";
-    return errorResponse(429, {
-      code: "RATE_LIMITED",
-      error: `GitHub API rate limit exceeded.${resetHint} Set GITHUB_TOKEN on the server to raise the limit to 5000 req/h.`,
-    });
-  }
-
-  if (!upstream.ok) {
-    return errorResponse(502, {
-      code: "UPSTREAM_ERROR",
-      error: `GitHub API responded with status ${upstream.status}. Try again shortly.`,
-    });
-  }
+  const mapped = mapUpstreamError(upstream, `No GitHub user named "${username}" exists.`);
+  if (mapped) return mapped;
 
   const raw = (await upstream.json()) as GithubRepo[];
 
@@ -119,6 +81,7 @@ export async function GET(
     url: repo.html_url,
     isFork: repo.fork,
     updatedAt: repo.updated_at,
+    defaultBranch: repo.default_branch,
   }));
 
   // GitHub signals more pages via the Link header's rel="next"; when the

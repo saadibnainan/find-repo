@@ -1,0 +1,13 @@
+# Keep Claude focused on source code — skip generated and vendored content
+node_modules/
+.next/
+out/
+build/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.DS_Store

@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+::selection {
+  background: #aaff00;
+  color: #050505;
+}
+
+html {
+  scrollbar-color: #aaff00 #050505;
+}
+
+body {
+  /* Subtle industrial grid etched into the void */
+  background-image:
+    linear-gradient(rgba(242, 242, 242, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 242, 242, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .perspective-stage {
+    perspective: 1400px;
+    perspective-origin: 50% 30%;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .text-outline {
+    -webkit-text-stroke: 2px #f2f2f2;
+    color: transparent;
+  }
+}

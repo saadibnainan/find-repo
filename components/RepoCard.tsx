@@ -1,11 +1,13 @@
 "use client";
 
+import { KeyboardEvent } from "react";
 import type { Repo } from "@/lib/types";
 import { languageColor } from "@/lib/languageColors";
 
 interface RepoCardProps {
   repo: Repo;
   index: number;
+  onSelect: (repo: Repo) => void;
 }
 
 function formatCount(n: number): string {
@@ -13,11 +15,25 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-export default function RepoCard({ repo, index }: RepoCardProps) {
+export default function RepoCard({ repo, index, onSelect }: RepoCardProps) {
+  function handleKey(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(repo);
+    }
+  }
+
   return (
-    <article className="group flex h-full flex-col border-4 border-bone bg-concrete shadow-brutal-white transition-shadow duration-150 hover:shadow-brutal">
-      <div className="flex items-start justify-between gap-2 border-b-4 border-bone bg-slab px-4 py-3">
-        <h2 className="break-all font-display text-lg uppercase leading-tight">
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`View file tree for ${repo.name}`}
+      onClick={() => onSelect(repo)}
+      onKeyDown={handleKey}
+      className="group flex h-full cursor-pointer flex-col border-4 border-bone bg-concrete transition-colors duration-150 hover:border-acid focus:outline-none focus-visible:border-acid focus-visible:ring-4 focus-visible:ring-acid/40"
+    >
+      <div className="flex items-start justify-between gap-2 border-b-4 border-inherit bg-slab px-4 py-3">
+        <h2 className="break-all font-display text-lg uppercase leading-tight group-hover:text-acid">
           {repo.name}
         </h2>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -51,14 +67,20 @@ export default function RepoCard({ repo, index }: RepoCardProps) {
         <span title={`${repo.forks} forks`}>⑂ {formatCount(repo.forks)}</span>
       </div>
 
-      <a
-        href={repo.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block border-t-4 border-bone bg-void px-4 py-3 text-center font-display text-sm uppercase tracking-widest text-acid hover:bg-acid hover:text-void focus:outline-none focus-visible:bg-acid focus-visible:text-void"
-      >
-        Open repo ↗<span className="sr-only"> {repo.name} on GitHub</span>
-      </a>
+      <div className="flex items-stretch border-t-4 border-inherit">
+        <span className="flex-1 bg-void px-4 py-3 text-center font-display text-sm uppercase tracking-widest text-acid group-hover:bg-acid group-hover:text-void">
+          View tree →
+        </span>
+        <a
+          href={repo.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="border-l-4 border-inherit bg-void px-4 py-3 text-center font-display text-sm uppercase tracking-widest text-bone hover:bg-bone hover:text-void focus:outline-none focus-visible:bg-bone focus-visible:text-void"
+        >
+          GitHub ↗<span className="sr-only"> open {repo.name} on GitHub</span>
+        </a>
+      </div>
     </article>
   );
 }

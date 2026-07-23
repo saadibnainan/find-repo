@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { ApiError, ReposPayload } from "@/lib/types";
+import type { ApiError, Repo, ReposPayload, UserProfile } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
+import UserCard from "@/components/UserCard";
 import RepoScene from "@/components/RepoScene";
+import RepoDetail from "@/components/RepoDetail";
 import SkeletonGrid from "@/components/SkeletonGrid";
 import ErrorSlab from "@/components/ErrorSlab";
 import Pagination from "@/components/Pagination";
@@ -14,59 +16,81 @@ type Status = "idle" | "loading" | "success" | "error";
 
 export default function Explorer() {
   const [status, setStatus] = useState<Status>("idle");
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [data, setData] = useState<ReposPayload | null>(null);
   const [apiError, setApiError] = useState<ApiError | null>(null);
+  const [selected, setSelected] = useState<Repo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchRepos = useCallback(async (username: string, page: number) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  // includeUser=true on a new search (fetch profile + repos); false on paging.
+  const fetchData = useCallback(
+    async (username: string, page: number, includeUser: boolean) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-    setStatus("loading");
-    setApiError(null);
+      setStatus("loading");
+      setApiError(null);
 
-    try {
-      const res = await fetch(
-        `/api/repos/${encodeURIComponent(username)}?page=${page}&per_page=${PER_PAGE}`,
-        { signal: controller.signal }
-      );
-      const body = await res.json();
+      try {
+        const reposReq = fetch(
+          `/api/repos/${encodeURIComponent(username)}?page=${page}&per_page=${PER_PAGE}`,
+          { signal: controller.signal }
+        );
+        const userReq = includeUser
+          ? fetch(`/api/user/${encodeURIComponent(username)}`, {
+              signal: controller.signal,
+            })
+          : null;
 
-      if (!res.ok) {
-        setApiError(body as ApiError);
+        const [reposRes, userRes] = await Promise.all([reposReq, userReq]);
+
+        const reposBody = await reposRes.json();
+        if (!reposRes.ok) {
+          setApiError(reposBody as ApiError);
+          setStatus("error");
+          return;
+        }
+
+        if (userRes) {
+          const userBody = await userRes.json();
+          if (userRes.ok) setUser(userBody as UserProfile);
+        }
+
+        setData(reposBody as ReposPayload);
+        setStatus("success");
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setApiError({
+          code: "UPSTREAM_ERROR",
+          error: "Network failure. The request never made it out. Retry.",
+        });
         setStatus("error");
-        return;
       }
-
-      setData(body as ReposPayload);
-      setStatus("success");
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setApiError({
-        code: "UPSTREAM_ERROR",
-        error: "Network failure. The request never made it out. Retry.",
-      });
-      setStatus("error");
-    }
-  }, []);
+    },
+    []
+  );
 
   const handleSearch = useCallback(
-    (username: string) => fetchRepos(username, 1),
-    [fetchRepos]
+    (username: string) => {
+      setUser(null);
+      setSelected(null);
+      fetchData(username, 1, true);
+    },
+    [fetchData]
   );
 
   const handlePage = useCallback(
     (page: number) => {
       if (!data) return;
       window.scrollTo({ top: 0, behavior: "smooth" });
-      fetchRepos(data.username, page);
+      fetchData(data.username, page, false);
     },
-    [data, fetchRepos]
+    [data, fetchData]
   );
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <SearchBar onSearch={handleSearch} busy={status === "loading"} />
 
       {status === "idle" && (
@@ -75,9 +99,12 @@ export default function Explorer() {
         </div>
       )}
 
-      {status === "loading" && <SkeletonGrid count={8} />}
-
       {status === "error" && apiError && <ErrorSlab error={apiError} />}
+
+      {/* Keep the profile visible across pagination loads. */}
+      {user && status !== "error" && <UserCard user={user} />}
+
+      {status === "loading" && <SkeletonGrid count={6} />}
 
       {status === "success" && data && (
         <>
@@ -91,7 +118,11 @@ export default function Explorer() {
               </p>
             </div>
           ) : (
-            <RepoScene key={`${data.username}-${data.page}`} repos={data.repos} />
+            <RepoScene
+              key={`${data.username}-${data.page}`}
+              repos={data.repos}
+              onSelect={setSelected}
+            />
           )}
           <Pagination
             page={data.page}
@@ -102,6 +133,14 @@ export default function Explorer() {
             onPage={handlePage}
           />
         </>
+      )}
+
+      {selected && data && (
+        <RepoDetail
+          username={data.username}
+          repo={selected}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );

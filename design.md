@@ -7,66 +7,77 @@ Browser ──> Next.js App Router
              ├── app/page.tsx            (server component: static shell)
              │    └── components/Explorer.tsx   (client: state machine)
              │         ├── SearchBar     (validation + submit)
-             │         ├── RepoScene     (3D motioned diagram)
-             │         │    └── RepoCard (presentational)
+             │         ├── UserCard      (profile: avatar/bio/stats)
+             │         ├── RepoScene     (repo card grid)
+             │         │    └── RepoCard (clickable → opens detail)
+             │         ├── RepoDetail    (modal: file tree)
+             │         │    └── TreeView (recursive, collapsible)
              │         ├── SkeletonGrid  (loading state)
              │         ├── ErrorSlab     (error states)
              │         └── Pagination    (prev/next)
-             └── app/api/repos/[username]/route.ts   (server proxy)
-                  └── https://api.github.com/users/:username/repos
+             └── app/api/…                        (server proxies)
+                  ├── user/[username]              → GET /users/:u
+                  ├── repos/[username]             → GET /users/:u/repos
+                  └── repos/[username]/[repo]/tree → GET /repos/:u/:r/git/trees/:b
 ```
 
 The page shell is a server component; all interactivity lives in one client
-island (`Explorer`). The GitHub API is never called from the browser — the
-route handler proxies it so an optional `GITHUB_TOKEN` stays server-side, and
-it maps the ~100-field GitHub response down to the 9 fields the UI renders,
-keeping payloads small.
+island (`Explorer`). The GitHub API is never called from the browser — three
+route handlers proxy it so an optional `GITHUB_TOKEN` stays server-side, and
+each maps GitHub's large responses down to the minimal fields the UI renders,
+keeping payloads small. Shared header/error/rate-limit logic lives in
+`lib/github.ts` so the three routes stay thin.
 
 ## State management
 
 Plain React state in `Explorer` — no external store. The UI is a four-state
-machine (`idle | loading | success | error`) plus the last successful payload
-and the last API error. This is deliberately boring: the app has exactly one
-async resource keyed by `(username, page)`, so Redux/Zustand/React Query would
-be pure overhead. An `AbortController` cancels in-flight requests when a new
-search fires, preventing stale responses from clobbering newer ones.
+machine (`idle | loading | success | error`) plus the last successful repos
+payload, the user profile, the last API error, and the currently selected repo
+(for the detail modal). This is deliberately boring: the app has one async
+resource keyed by `(username, page)`, so Redux/Zustand/React Query would be
+pure overhead. An `AbortController` cancels in-flight requests when a new search
+fires, preventing stale responses from clobbering newer ones.
+
+On a new search the profile and first page of repos are fetched in parallel
+(`Promise.all`); paging refetches only repos, so the profile stays put. The
+file tree is owned locally by `RepoDetail` — it has its own fetch/loading/error
+lifecycle so opening a repo never disturbs the list behind it.
 
 Pagination state lives in the API payload (`page`, `hasNext`, `hasPrev`)
 rather than duplicated client-side. `hasNext` is derived server-side from
 GitHub's `Link: rel="next"` header (with a full-page-length fallback), because
 the repos endpoint returns no total count.
 
-## 3D UI implementation strategy
+## Motion strategy
 
-**Chosen approach: CSS 3D transforms driven by Framer Motion** (rejected
-React Three Fiber — see trade-offs below).
+The original brief called for a "3D motioned diagram." An early version tilted
+the whole grid toward the cursor via a `mousemove` → spring → `rotateX/Y`
+pipeline with per-card `translateZ` depth planes. In review that read as
+disorienting and unprofessional, so it was **removed** in favour of restraint:
 
-- The scene wrapper gets `perspective: 1400px`; the grid and each card get
-  `transform-style: preserve-3d`, so all transforms compose in one 3D space.
-- **Scene tilt:** a window-level `mousemove` listener writes normalized cursor
-  coordinates into Framer `MotionValue`s, smoothed through `useSpring` and
-  mapped via `useTransform` to ±7° `rotateY` / ±5° `rotateX` on the whole grid.
-  Springing on the motion-value layer means the tilt animates off the React
-  render path — no re-renders per mouse move.
-- **Depth planes:** cards are assigned `translateZ` from a repeating
-  `[0, 60, 120, 60]` slot pattern, giving the grid a sculpted, diagram-like
-  relief rather than a flat wall.
-- **Cascade entrance:** each card animates from `y:120, z:-300, rotateX:-35°`
-  to its resting slot with a per-index stagger and an ease-out-quint curve.
-  Re-keying `RepoScene` on `(username, page)` replays the cascade on every new
-  result set.
-- **Hover:** cards pop forward (`z:180, scale:1.04`) and their hard drop
-  shadow flips from bone-white to acid green.
-- **Accessibility:** `useReducedMotion` collapses all of the above to simple
-  opacity fades, and the tilt listener is never attached.
+- **Entrance:** each card fades and rises a few pixels (`opacity 0→1`,
+  `y 16→0`) with a small per-index stagger, capped at 0.4 s so long lists don't
+  drag. Re-keying `RepoScene` on `(username, page)` replays it per page.
+- **Hover:** a calm colour shift — the card border and title move to acid
+  green, the primary action bar fills. No perspective, no scaling, no cursor
+  tracking.
+- **Accessibility:** `useReducedMotion` collapses the entrance to a plain
+  opacity fade.
 
-### Why not React Three Fiber
+Framer Motion is still the animation layer (it is minimal here), and React
+Three Fiber was never warranted — WebGL adds ~150 kB to render what is a grid
+of text cards, at the cost of DOM text, native focus order, and real links.
 
-R3F adds ~150 kB+ of WebGL runtime to render what is fundamentally a grid of
-text cards. Text inside a canvas is either blurry (textures) or a positioning
-headache (HTML overlays), and keyboard/screen-reader accessibility must be
-rebuilt by hand. CSS 3D keeps real DOM text, native focus order, and links —
-and delivers the same "floating diagram" read at a fraction of the cost.
+## Repository file tree
+
+Clicking a card opens `RepoDetail`, a modal that fetches
+`/api/repos/:username/:repo/tree?branch=<default>`. Server-side the route calls
+GitHub's git-trees API with `recursive=1`, then folds the flat, slash-delimited
+path list into a nested `TreeNode[]` (directories before files, each group
+alphabetised) so the client renders without any tree-building logic.
+`TreeView` is a small recursive component: directories are collapsible buttons
+(top level open by default), files show human-readable sizes. GitHub's
+`truncated` flag is surfaced as a notice for very large repositories.
 
 ## Visual language — dark brutalism
 
@@ -81,6 +92,24 @@ and delivers the same "floating diagram" read at a fraction of the cost.
 - Errors are load-bearing UI: full-width slabs with oversized display type.
   Rate-limit errors render in acid green with fix guidance; not-found and
   network errors render in alarm red.
+
+## Brand mark
+
+The logomark was designed in a Claude Design (`claude.ai/design`) project as
+four directions (lens+repo, terminal caret, repo card, F monogram), each shown
+as an app tile, favicon, avatar, and wordmark lockup. **"Repo Card"** was
+selected: a card outline with a header rule and a lime status dot in the
+corner — a miniature echo of the app's own repo cards, so the mark literally
+reads as "the repo you found."
+
+`components/Logo.tsx` exports `LogoMark` (icon only) and `Logo` (icon +
+"FIND[lime block]REPO" wordmark) as the single source of truth, used in the
+page header and the file-tree modal's title. `app/icon.svg` reproduces the
+same mark as a static file so Next.js serves it as the browser favicon via
+its file-based metadata convention — no separate icon asset to keep in sync.
+The icon's internal rounding (`rx="6"` on the card) is kept from the source
+design since it's part of the pictogram itself; the outer tile stays sharp
+(`0` radius) to match the rest of the UI's zero-border-radius rule.
 
 ## Deviations from the suggested stack
 

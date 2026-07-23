@@ -8,6 +8,7 @@ export interface Repo {
   url: string;
   isFork: boolean;
   updatedAt: string;
+  defaultBranch: string;
 }
 
 export interface ReposPayload {
@@ -17,6 +18,36 @@ export interface ReposPayload {
   hasNext: boolean;
   hasPrev: boolean;
   repos: Repo[];
+}
+
+export interface UserProfile {
+  login: string;
+  name: string | null;
+  avatarUrl: string;
+  bio: string | null;
+  url: string;
+  followers: number;
+  following: number;
+  publicRepos: number;
+  location: string | null;
+  company: string | null;
+  blog: string | null;
+}
+
+export interface TreeNode {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+  size?: number;
+  children?: TreeNode[];
+}
+
+export interface TreePayload {
+  username: string;
+  repo: string;
+  branch: string;
+  truncated: boolean;
+  tree: TreeNode[];
 }
 
 export type ApiErrorCode =
